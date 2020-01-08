@@ -1,0 +1,228 @@
+from flask import Flask, request
+from flask_restful import Resource, Api
+from flask_cors import CORS
+import sqlite3
+
+conn = sqlite3.connect('mydatabase.db')
+
+app = Flask(__name__)
+CORS(app)
+api = Api(app)
+
+claves_utiles = ["12345", "54321"]
+claves_usadas = ["666"]
+claves_admin = ["1111"]
+resultados = {}
+
+boleta = [
+    {
+        "logo": "PAN.jpg",
+		"candidato": "PEDRO PEREZ PEREIRA",
+		"partido": "PAN",
+		"id": 123	
+    },
+    {
+        "logo": "PRI.jpg",
+		"candidato": "JUANA LOPEZ LOPEZ",
+		"partido": "PRI",
+		"id": 456	
+    },
+    {
+        "logo": "MORENA.jpg",
+		"candidato": "PANCHO MENDEZ MENDEZ",
+		"partido": "MORENA",
+		"id": 789	
+    },
+    {
+        "logo": "PT.jpg",
+		"candidato": "MANUEL RAMIREZ RAMIREZ",
+		"partido": "PT",
+		"id": 426	
+    }
+]
+
+class Login(Resource):
+    def post(self):
+        req = request.get_json()
+        if "clave" in req:
+            clave = req["clave"]
+            status = -1
+            if clave in claves_utiles:
+                status = 0
+            elif clave in claves_usadas:
+                status = 2
+            elif clave in claves_admin:
+                status = 3
+            else:
+                status = 1
+            return {"status": status}
+        
+        return {"error": "bad request"}
+
+
+class Boleta(Resource):
+    def get(self):
+        return boleta
+
+
+class Votar(Resource):
+    def post(self):
+        req = request.get_json()
+        status = 1
+        mensaje = ""
+        if "clave" in req and "id" in req:
+            clave = req["clave"]
+            voto = req["id"]
+            if clave in claves_utiles:
+                # TODO: imprimir en la impresora
+                partido = ""
+                candidato = ""
+                for part in boleta:
+                    if part["id"] == voto:
+                        partido = part["partido"]
+                        candidato = part["candidato"]
+                        break
+                else:
+                    err = "no se encontró el partido {}". format(voto)
+                    print(err)
+                    return {"status": status, "mensaje": err}
+                print("votaste por: {} del partido {}".format(candidato, partido))
+
+                # Registrar voto
+                if partido in resultados:
+                    resultados[partido] += 1
+                else:
+                    resultados[partido] = 1
+
+                claves_utiles.remove(clave)
+                claves_usadas.append(clave)
+                status = 0
+            elif clave in claves_usadas:
+                mensaje = "clave ya usada"
+            elif clave in claves_admin:
+                mensaje = "clave de admin no puede votar"
+            else:
+                mensaje = "clave no encontrada"
+            if mensaje == "":
+                return {"status": status}
+            return {"status": status, "mensaje": mensaje}
+                
+        
+        return {"status": status, "mensaje": "bad request"}
+
+
+class Lista(Resource):
+    def post(self):
+        req = request.get_json()
+        if "clave" in req:
+            clave = req["clave"]
+            if clave in claves_admin:
+                # Imprimir resultados
+                print(resultados)
+                return
+            else:
+                return {"error": "no autorizado"}
+        
+        return {"error": "bad request"}
+
+
+
+api.add_resource(Login, '/login')
+api.add_resource(Boleta, '/boleta')
+api.add_resource(Votar, '/votar')
+api.add_resource(Lista, "/lista")
+
+## DATABASE
+
+def prepare_database(con):
+    cursorObj = con.cursor()
+    cursorObj.execute("CREATE TABLE usuarios(id integer PRIMARY KEY, clave text, admin bool, used bool)")
+    con.commit()
+
+    cursorObj.execute("CREATE TABLE boleta(id integer PRIMARY KEY, clave text, partido text, candidato text, logo text)")
+    con.commit()
+
+    cursorObj.execute("CREATE TABLE resultado(id integer PRIMARY KEY, partido text, total integer)")
+    con.commit()
+
+def insert_user(con, user, admin):
+    cursorObj = con.cursor()
+    entities = (user, user, admin, False)
+    cursorObj.execute('''INSERT INTO usuarios(id, clave, admin, used) VALUES(?, ?, ?, ?)''', entities)
+
+    con.commit()
+
+def insert_partido(con, partido):
+    cursorObj = con.cursor()
+    entities = (partido["id"], partido["id"], partido["partido"], partido["candidato"], partido["logo"])
+    cursorObj.execute('''INSERT INTO boleta(id, clave, partido, candidato, logo) VALUES(?, ?, ?, ?, ?)''', entities)
+    con.commit()
+    entities = (partido["id"], partido["partido"], 0)
+    cursorObj.execute('''INSERT INTO resultado(id, partido, total) VALUES(?, ?, ?)''', entities)
+
+    con.commit()
+
+def check_user(con, clave):
+    cursorObj = con.cursor()
+    cursorObj.execute('SELECT * FROM usuarios WHERE clave=?', (clave,))
+ 
+    rows = cursorObj.fetchall()
+
+    if len(rows) == 0:
+        return 1
+    if rows[0][2]:
+        return 3
+    if rows[0][3]:
+        return 2
+    return 0
+
+def get_boleta(con):
+    cursorObj = con.cursor()
+    cursorObj.execute('SELECT * FROM boleta')
+
+    rows = cursorObj.fetchall()
+
+    res = []
+
+    for part in rows:
+        res.append({
+            "id": part[1],
+            "partido": part[2],
+            "candidato": part[3],
+            "logo": part[4]
+        })
+    return res
+
+def registrar_voto(con, partido_id, clave_user):
+    cursorObj = con.cursor()
+    cursorObj.execute('UPDATE resultado SET total = total + 1 WHERE id=?', (partido_id,))
+    con.commit()
+
+    cursorObj.execute('UPDATE usuarios SET used = true WHERE id=?', (clave_user,))
+    con.commit()
+
+
+if __name__ == '__main__':
+    # Crear tablas
+    try:
+        prepare_database(conn)
+    except Exception as e:
+        print(e)
+
+    # Crear usuarios
+    try:
+        for user in claves_utiles:
+            insert_user(conn, user, False)
+        for user in claves_admin:
+            insert_user(conn, user, True)
+    except Exception as e:
+        print(e)
+    
+    # Crear boleta
+    try:
+        for partido in boleta:
+            insert_partido(conn, partido)
+    except Exception as e:
+        print(e)
+    
+    app.run(debug=True, host='0.0.0.0')
