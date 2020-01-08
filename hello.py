@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 import sqlite3
 
-conn = sqlite3.connect('mydatabase.db')
+conn = sqlite3.connect('mydatabase.db', check_same_thread=False)
 
 app = Flask(__name__)
 CORS(app)
@@ -46,15 +46,7 @@ class Login(Resource):
         req = request.get_json()
         if "clave" in req:
             clave = req["clave"]
-            status = -1
-            if clave in claves_utiles:
-                status = 0
-            elif clave in claves_usadas:
-                status = 2
-            elif clave in claves_admin:
-                status = 3
-            else:
-                status = 1
+            status = check_user(conn, clave)
             return {"status": status}
         
         return {"error": "bad request"}
@@ -62,7 +54,8 @@ class Login(Resource):
 
 class Boleta(Resource):
     def get(self):
-        return boleta
+        db_boleta = get_boleta(conn)
+        return db_boleta
 
 
 class Votar(Resource):
@@ -73,13 +66,18 @@ class Votar(Resource):
         if "clave" in req and "id" in req:
             clave = req["clave"]
             voto = req["id"]
-            if clave in claves_utiles:
+            db_user_clave = check_user(conn, clave)
+            if db_user_clave == 0:
                 # TODO: imprimir en la impresora
                 partido = ""
+                partido_id = ""
                 candidato = ""
-                for part in boleta:
+
+                db_boleta = get_boleta(conn)
+                for part in db_boleta:
                     if part["id"] == voto:
                         partido = part["partido"]
+                        partido_id = part["id"]
                         candidato = part["candidato"]
                         break
                 else:
@@ -89,17 +87,11 @@ class Votar(Resource):
                 print("votaste por: {} del partido {}".format(candidato, partido))
 
                 # Registrar voto
-                if partido in resultados:
-                    resultados[partido] += 1
-                else:
-                    resultados[partido] = 1
-
-                claves_utiles.remove(clave)
-                claves_usadas.append(clave)
+                registrar_voto(conn, partido_id, clave)
                 status = 0
-            elif clave in claves_usadas:
+            elif db_user_clave == 2:
                 mensaje = "clave ya usada"
-            elif clave in claves_admin:
+            elif db_user_clave == 3:
                 mensaje = "clave de admin no puede votar"
             else:
                 mensaje = "clave no encontrada"
@@ -116,9 +108,11 @@ class Lista(Resource):
         req = request.get_json()
         if "clave" in req:
             clave = req["clave"]
-            if clave in claves_admin:
+            status = check_user(conn, clave)
+            if status == 3:
                 # Imprimir resultados
-                print(resultados)
+                db_resultados = get_resultados(conn)
+                print(db_resultados)
                 return
             else:
                 return {"error": "no autorizado"}
@@ -200,6 +194,22 @@ def registrar_voto(con, partido_id, clave_user):
 
     cursorObj.execute('UPDATE usuarios SET used = true WHERE id=?', (clave_user,))
     con.commit()
+
+def get_resultados(con):
+    cursorObj = con.cursor()
+    cursorObj.execute('SELECT * FROM resultado')
+
+    rows = cursorObj.fetchall()
+
+    res = []
+
+    for part in rows:
+        res.append({
+            "id": part[0],
+            "partido": part[1],
+            "total": part[2]
+        })
+    return res
 
 
 if __name__ == '__main__':
