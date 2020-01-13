@@ -112,7 +112,7 @@ class Lista(Resource):
             if status == 3:
                 # Imprimir resultados
                 db_resultados = get_resultados(conn)
-                print(db_resultados)
+                print_result(db_resultados)
                 return
             else:
                 return {"error": "no autorizado"}
