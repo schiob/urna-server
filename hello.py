@@ -1,6 +1,7 @@
 from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
+from escpos.printer import Serial
 import sqlite3
 
 conn = sqlite3.connect('mydatabase.db', check_same_thread=False)
@@ -9,8 +10,8 @@ app = Flask(__name__)
 CORS(app)
 api = Api(app)
 
-claves_utiles = ["12345", "54321"]
-claves_usadas = ["666"]
+claves_utiles = [str(x) for x in range(20)]
+claves_usadas = [""]
 claves_admin = ["1111"]
 resultados = {}
 
@@ -68,7 +69,6 @@ class Votar(Resource):
             voto = req["id"]
             db_user_clave = check_user(conn, clave)
             if db_user_clave == 0:
-                # TODO: imprimir en la impresora
                 partido = ""
                 partido_id = ""
                 candidato = ""
@@ -84,7 +84,7 @@ class Votar(Resource):
                     err = "no se encontró el partido {}". format(voto)
                     print(err)
                     return {"status": status, "mensaje": err}
-                print("votaste por: {} del partido {}".format(candidato, partido))
+                print_voto(candidato, partido)
 
                 # Registrar voto
                 registrar_voto(conn, partido_id, clave)
@@ -125,6 +125,26 @@ api.add_resource(Login, '/login')
 api.add_resource(Boleta, '/boleta')
 api.add_resource(Votar, '/votar')
 api.add_resource(Lista, "/lista")
+
+## PRINTER
+def print_voto(candidato, partido):
+    p = Serial('COM1')
+    p.text("\n============VOTO============\n")
+    p.text("PARTIDO: {}\n".format(partido))
+    p.text("CANDIDATO: {}\n".format(candidato))
+    p.text("============VOTO============\n")
+    p.cut()
+    p.close()
+
+def print_result(db_result):
+    p = Serial('COM1')
+    p.text("\n============RESULTADOS============\n")
+    for row in db_result:
+        p.text("{}\n".format(db_result))
+    p.text("============RESULTADOS============\n")
+    p.cut()
+    p.close()
+
 
 ## DATABASE
 
