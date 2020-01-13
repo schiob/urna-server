@@ -76,6 +76,7 @@ class Votar(Resource):
                 partido = ""
                 partido_id = ""
                 candidato = ""
+                image = ""
 
                 db_boleta = get_boleta(conn)
                 for part in db_boleta:
@@ -83,12 +84,13 @@ class Votar(Resource):
                         partido = part["partido"]
                         partido_id = part["id"]
                         candidato = part["candidato"]
+                        image = part["logo"]
                         break
                 else:
                     err = "no se encontró el partido {}". format(voto)
                     print(err)
                     return {"status": status, "mensaje": err}
-                print_voto(candidato, partido)
+                print_voto(candidato, partido, image)
 
                 # Registrar voto
                 registrar_voto(conn, partido_id, clave)
@@ -131,10 +133,11 @@ api.add_resource(Votar, '/votar')
 api.add_resource(Lista, "/lista")
 
 ## PRINTER
-def print_voto(candidato, partido):
+def print_voto(candidato, partido, image):
     p = Serial('COM1')
-    p.text("\n============VOTO============\n\n\n\n")
-    p.text("PARTIDO: {}\n\n".format(partido))
+    p.text("\n============VOTO============\n")
+    p.image(image)
+    p.text("\nPARTIDO: {}\n\n".format(partido))
     p.text("CANDIDATO: {}\n\n".format(candidato))
     p.text("============VOTO============\n\n")
     p.cut()
