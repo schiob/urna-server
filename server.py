@@ -129,19 +129,19 @@ api.add_resource(Lista, "/lista")
 ## PRINTER
 def print_voto(candidato, partido):
     p = Serial('COM1')
-    p.text("\n============VOTO============\n")
-    p.text("PARTIDO: {}\n".format(partido))
-    p.text("CANDIDATO: {}\n".format(candidato))
-    p.text("============VOTO============\n")
+    p.text("\n============VOTO============\n\n\n\n")
+    p.text("PARTIDO: {}\n\n".format(partido))
+    p.text("CANDIDATO: {}\n\n".format(candidato))
+    p.text("============VOTO============\n\n")
     p.cut()
     p.close()
 
 def print_result(db_result):
     p = Serial('COM1')
-    p.text("\n============RESULTADOS============\n")
+    p.text("\n============RESULTADOS============\n\n\n\n")
     for row in db_result:
-        p.text("{}\n".format(db_result))
-    p.text("============RESULTADOS============\n")
+        p.text("{}\n\n".format(db_result))
+    p.text("============RESULTADOS============\n\n")
     p.cut()
     p.close()
 
