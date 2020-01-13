@@ -17,30 +17,34 @@ resultados = {}
 
 boleta = [
     {
-        "logo": "PAN.jpg",
+        "logo": "image/PAN.jpg",
 		"candidato": "PEDRO PEREZ PEREIRA",
 		"partido": "PAN",
 		"id": 123	
     },
     {
-        "logo": "PRI.jpg",
+        "logo": "image/PRI.jpeg",
 		"candidato": "JUANA LOPEZ LOPEZ",
 		"partido": "PRI",
 		"id": 456	
     },
     {
-        "logo": "MORENA.jpg",
+        "logo": "image/MORENA.png",
 		"candidato": "PANCHO MENDEZ MENDEZ",
 		"partido": "MORENA",
 		"id": 789	
     },
     {
-        "logo": "PT.jpg",
+        "logo": "image/PRD.png",
 		"candidato": "MANUEL RAMIREZ RAMIREZ",
-		"partido": "PT",
+		"partido": "PRD",
 		"id": 426	
     }
 ]
+
+@app.route('/image/<path:path>')
+def send_image(path):
+    return send_from_directory('image', path)
 
 class Login(Resource):
     def post(self):
