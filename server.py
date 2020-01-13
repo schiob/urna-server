@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_restful import Resource, Api
 from flask_cors import CORS
 from escpos.printer import Serial
@@ -259,4 +259,4 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
     
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port='8000')
